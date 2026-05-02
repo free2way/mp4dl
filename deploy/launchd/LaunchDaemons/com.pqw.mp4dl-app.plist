@@ -4,6 +4,10 @@
   <dict>
     <key>Label</key>
     <string>com.pqw.mp4dl-app</string>
+    <key>UserName</key>
+    <string>jackyhu</string>
+    <key>GroupName</key>
+    <string>staff</string>
     <key>ProgramArguments</key>
     <array>
       <string>/Volumes/STORAGE_Jackyhu/code/x_video/.venv/bin/python</string>
