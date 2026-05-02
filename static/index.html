@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Video Downloader</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="app-title">
+        <div class="intro">
+          <p class="eyebrow">Local Downloader</p>
+          <h1 id="app-title">Video Downloader</h1>
+          <p class="summary">粘贴 X、YouTube 或哔哩哔哩链接，选择清晰度后下载到本机。</p>
+        </div>
+
+        <form id="download-form" class="download-form">
+          <label for="url">视频链接</label>
+          <div class="input-row">
+            <input
+              id="url"
+              name="url"
+              type="url"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="https://www.youtube.com/watch?v=... 或 https://www.bilibili.com/video/..."
+              required
+            />
+            <button id="parse" type="button">解析清晰度</button>
+            <button id="submit" type="submit">开始下载</button>
+          </div>
+
+          <div class="options-grid">
+            <div class="options wide-option">
+              <label for="save-dir">保存目录</label>
+              <div class="path-row">
+                <input id="save-dir" name="save-dir" type="text" autocomplete="off" />
+                <button id="choose-dir" type="button">选择目录</button>
+              </div>
+            </div>
+
+            <div class="options">
+              <label for="cookie-source">登录 Cookie</label>
+              <select id="cookie-source" name="cookie-source">
+                <option value="none">不使用</option>
+                <option value="chrome">Chrome</option>
+                <option value="safari">Safari</option>
+                <option value="firefox">Firefox</option>
+                <option value="edge">Edge</option>
+                <option value="brave">Brave</option>
+              </select>
+            </div>
+
+            <div id="quality-field" class="options hidden">
+              <label for="quality">清晰度</label>
+              <select id="quality" name="quality">
+                <option value="best">最高画质</option>
+              </select>
+            </div>
+
+            <div id="subtitle-field" class="options subtitle-option hidden">
+              <label>字幕</label>
+              <div class="check-row">
+                <input id="include-subtitles" type="checkbox" />
+                <span>同时下载字幕</span>
+              </div>
+              <select id="subtitle-lang" name="subtitle-lang" disabled>
+                <option value="all">全部可用字幕</option>
+              </select>
+            </div>
+          </div>
+        </form>
+
+        <section id="media-info" class="media-info hidden">
+          <span id="platform">等待解析</span>
+          <strong id="video-title">未选择视频</strong>
+          <small id="quality-note"></small>
+        </section>
+
+        <section class="status-area" aria-live="polite">
+          <div class="status-line">
+            <span id="status-dot" class="dot idle"></span>
+            <span id="status-text">等待链接</span>
+            <span id="progress-text">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+          <a id="file-link" class="file-link hidden" href="#">下载文件</a>
+        </section>
+
+        <section class="system">
+          <div>
+            <span class="system-label">yt-dlp</span>
+            <strong id="yt-dlp">检查中</strong>
+          </div>
+          <div>
+            <span class="system-label">ffmpeg</span>
+            <strong id="ffmpeg">检查中</strong>
+          </div>
+          <div>
+            <span class="system-label">保存目录</span>
+            <strong id="download-dir">检查中</strong>
+          </div>
+        </section>
+
+        <details class="log-panel">
+          <summary>任务日志</summary>
+          <pre id="log"></pre>
+        </details>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
