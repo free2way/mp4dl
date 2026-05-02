@@ -36,7 +36,7 @@ Downloads are saved into `downloads/` by default.
 
 ## Deploying to Vercel
 
-This repo includes `app.py` and `vercel.json` so Vercel can detect a Python entrypoint.
+This repo includes `api/index.py`, `app.py`, and `vercel.json` so Vercel can detect a Python Serverless Function entrypoint.
 
 Vercel is useful for hosting the UI and lightweight format parsing, but the full downloader is designed for local use. Cloud deployments cannot open a folder picker on your computer, save files into your local filesystem, or reliably keep long background downloads alive after the request ends.
 
