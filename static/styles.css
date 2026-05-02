@@ -43,10 +43,17 @@ body {
   padding: clamp(24px, 5vw, 54px);
 }
 
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 34px;
+}
+
 .intro {
   display: grid;
   gap: 10px;
-  margin-bottom: 34px;
 }
 
 .eyebrow {
@@ -147,6 +154,19 @@ button:disabled {
   cursor: wait;
   opacity: 0.62;
   transform: none;
+}
+
+.secondary-button {
+  height: 42px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 0 16px;
+}
+
+.secondary-button:hover {
+  background: #fff;
+  color: var(--accent-dark);
 }
 
 .options-grid {
@@ -318,6 +338,37 @@ pre {
   line-height: 1.5;
 }
 
+.auth-shell {
+  align-content: center;
+}
+
+.auth-workspace {
+  width: min(520px, 100%);
+}
+
+.auth-intro {
+  margin-bottom: 28px;
+}
+
+.auth-intro h1 {
+  font-size: clamp(38px, 8vw, 64px);
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form button {
+  margin-top: 6px;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-weight: 760;
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -341,6 +392,7 @@ pre {
   }
 
   .input-row,
+  .topbar,
   .options-grid,
   .system {
     grid-template-columns: 1fr;

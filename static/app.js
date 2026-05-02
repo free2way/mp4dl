@@ -23,6 +23,7 @@ const log = document.querySelector("#log");
 const ytDlp = document.querySelector("#yt-dlp");
 const ffmpeg = document.querySelector("#ffmpeg");
 const downloadDir = document.querySelector("#download-dir");
+const logout = document.querySelector("#logout");
 
 let pollTimer = null;
 let parsedForUrl = "";
@@ -54,6 +55,15 @@ function progressLabel(job, progress) {
     return `${progress}% · ${formatBytes(downloaded)}`;
   }
   return `${progress}%`;
+}
+
+async function readPayload(response) {
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    window.location.href = "/login";
+    throw new Error(payload.error || "请先登录");
+  }
+  return payload;
 }
 
 function setStatus(job) {
@@ -131,7 +141,7 @@ function fillFormats(payload) {
 
 async function refreshSystem() {
   const response = await fetch("/api/system");
-  const system = await response.json();
+  const system = await readPayload(response);
   ytDlp.textContent = system.ytDlpVersion || "未安装";
   ffmpeg.textContent = system.ffmpeg ? "可用" : "未安装";
   downloadDir.textContent = system.downloadDir;
@@ -158,7 +168,7 @@ async function parseFormats() {
         cookieSource: cookieSource.value,
       }),
     });
-    const payload = await response.json();
+    const payload = await readPayload(response);
     if (!response.ok) {
       throw new Error(payload.error || "解析失败");
     }
@@ -174,7 +184,7 @@ async function parseFormats() {
 
 async function pollJob(id) {
   const response = await fetch(`/api/jobs/${id}`);
-  const job = await response.json();
+  const job = await readPayload(response);
   setStatus(job);
 }
 
@@ -190,7 +200,7 @@ chooseDir.addEventListener("click", async () => {
   setStatus({ status: "running", progress: 0, message: "等待目录选择" });
   try {
     const response = await fetch("/api/select-directory", { method: "POST" });
-    const payload = await response.json();
+    const payload = await readPayload(response);
     if (!response.ok) {
       throw new Error(payload.error || "选择目录失败");
     }
@@ -201,6 +211,15 @@ chooseDir.addEventListener("click", async () => {
   } finally {
     chooseDir.disabled = false;
     chooseDir.textContent = "选择目录";
+  }
+});
+
+logout.addEventListener("click", async () => {
+  logout.disabled = true;
+  try {
+    await fetch("/api/logout", { method: "POST" });
+  } finally {
+    window.location.href = "/login";
   }
 });
 
@@ -248,7 +267,7 @@ form.addEventListener("submit", async (event) => {
         subtitleLang: subtitleLang.value || "all",
       }),
     });
-    const payload = await response.json();
+    const payload = await readPayload(response);
     if (!response.ok) {
       throw new Error(payload.error || "创建任务失败");
     }

@@ -17,6 +17,13 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from auth import (
+    credentials_are_valid,
+    is_authenticated_cookie,
+    login_cookie_header,
+    logout_cookie_header,
+)
+
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
@@ -84,11 +91,18 @@ jobs: dict[str, Job] = {}
 jobs_lock = threading.Lock()
 
 
-def json_response(handler: SimpleHTTPRequestHandler, payload: object, status: int = 200) -> None:
+def json_response(
+    handler: SimpleHTTPRequestHandler,
+    payload: object,
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+) -> None:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(data)))
+    for key, value in (headers or {}).items():
+        handler.send_header(key, value)
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -735,13 +749,49 @@ def run_download(
 
 class AppHandler(SimpleHTTPRequestHandler):
     server_version = "VideoDownloader/1.0"
+    public_static_paths = {"/login", "/login.html", "/login.js", "/styles.css", "/favicon.ico"}
 
     def log_message(self, format: str, *args: object) -> None:
         sys.stdout.write("%s - - [%s] %s\n" % (self.address_string(), self.log_date_time_string(), format % args))
 
+    def is_authenticated(self) -> bool:
+        return is_authenticated_cookie(self.headers.get("Cookie"))
+
+    def redirect(self, location: str) -> None:
+        self.send_response(HTTPStatus.FOUND)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def require_auth(self, path: str) -> bool:
+        if self.is_authenticated():
+            return True
+        if path.startswith("/api/"):
+            json_response(self, {"error": "请先登录"}, HTTPStatus.UNAUTHORIZED)
+            return False
+        self.redirect("/login")
+        return False
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
+        if path == "/api/health":
+            json_response(self, {"ok": True})
+            return
+        if path == "/api/session":
+            json_response(self, {"authenticated": self.is_authenticated()})
+            return
+        if path == "/login":
+            if self.is_authenticated():
+                self.redirect("/")
+                return
+            self.serve_static("/login.html")
+            return
+        if path in self.public_static_paths:
+            self.serve_static(path)
+            return
+        if not self.require_auth(path):
+            return
         if path == "/api/system":
             json_response(self, system_status())
             return
@@ -761,6 +811,32 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/login":
+            try:
+                payload = read_json(self)
+            except Exception:
+                json_response(self, {"error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
+                return
+            username = str(payload.get("username", "")).strip()
+            password = str(payload.get("password", ""))
+            if not credentials_are_valid(username, password):
+                json_response(self, {"error": "用户名或密码不正确"}, HTTPStatus.UNAUTHORIZED)
+                return
+            json_response(
+                self,
+                {"ok": True},
+                headers={"Set-Cookie": login_cookie_header()},
+            )
+            return
+        if parsed.path == "/api/logout":
+            json_response(
+                self,
+                {"ok": True},
+                headers={"Set-Cookie": logout_cookie_header()},
+            )
+            return
+        if not self.require_auth(parsed.path):
+            return
         if parsed.path not in {"/api/download", "/api/formats", "/api/select-directory"}:
             json_response(self, {"error": "Not found"}, HTTPStatus.NOT_FOUND)
             return

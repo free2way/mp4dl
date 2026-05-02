@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, make_response, redirect, request, send_from_directory
 
+from auth import credentials_are_valid, is_authenticated_cookie, login_cookie_header, logout_cookie_header
 from server import (
     DOWNLOAD_DIR,
     STATIC_DIR,
@@ -15,6 +16,63 @@ from server import (
 
 
 app = Flask(__name__, static_folder=None)
+PUBLIC_PATHS = {
+    "/login",
+    "/login.html",
+    "/login.js",
+    "/styles.css",
+    "/favicon.ico",
+    "/api/login",
+    "/api/logout",
+    "/api/session",
+    "/api/health",
+}
+
+
+def request_is_authenticated() -> bool:
+    return is_authenticated_cookie(request.headers.get("Cookie"))
+
+
+@app.before_request
+def require_login() -> Response | tuple[Response, int] | None:
+    if request.path in PUBLIC_PATHS:
+        return None
+    if request_is_authenticated():
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "请先登录"}), 401
+    return redirect("/login")
+
+
+@app.get("/login")
+def login_page() -> Response:
+    if request_is_authenticated():
+        return redirect("/")
+    return send_from_directory(STATIC_DIR, "login.html")
+
+
+@app.get("/api/session")
+def api_session() -> Response:
+    return jsonify({"authenticated": request_is_authenticated()})
+
+
+@app.post("/api/login")
+def api_login() -> Response:
+    payload = request.get_json(silent=True) or {}
+    username = str(payload.get("username", "")).strip()
+    password = str(payload.get("password", ""))
+    if not credentials_are_valid(username, password):
+        return jsonify({"error": "用户名或密码不正确"}), 401
+    response = make_response(jsonify({"ok": True}))
+    response.headers.add("Set-Cookie", login_cookie_header())
+    return response
+
+
+@app.post("/api/logout")
+def api_logout() -> Response:
+    response = make_response(jsonify({"ok": True}))
+    response.headers.add("Set-Cookie", logout_cookie_header())
+    return response
 
 
 @app.get("/")

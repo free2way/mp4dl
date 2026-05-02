@@ -32,7 +32,21 @@ brew install ffmpeg
 
 Open `http://127.0.0.1:8765`.
 
+Default login:
+
+- Username: `admin`
+- Password: `admin234`
+
 Downloads are saved into `downloads/` by default.
+
+When exposing the app outside your LAN, change the login values before starting the server:
+
+```bash
+export VIDEO_DOWNLOADER_USER="your-user"
+export VIDEO_DOWNLOADER_PASSWORD="your-strong-password"
+export VIDEO_DOWNLOADER_SECRET="a-long-random-session-secret"
+.venv/bin/python server.py
+```
 
 ## Deploying to Vercel
 
@@ -48,3 +62,4 @@ Vercel is useful for hosting the UI and lightweight format parsing, but the full
 - Completed files are named as `<page title>-<resolution>.<ext>`.
 - Some videos require login. In that case, select the browser whose cookies contain your logged-in session.
 - The app runs locally and binds to `127.0.0.1` by default.
+- The web UI is protected by a signed cookie login session.
