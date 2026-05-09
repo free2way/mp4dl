@@ -2,8 +2,14 @@ name: Android APK Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+
+env:
+  RELEASE_VERSION: 0.1.0
+  RELEASE_TAG: v0.1.0
 
 permissions:
   contents: write
@@ -36,13 +42,13 @@ jobs:
 
       - name: Prepare APK artifact
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          cp app/build/outputs/apk/release/app-release.apk "../x-video-${version}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "../x-video-${RELEASE_VERSION}.apk"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: x-video-*.apk
-          name: X Video ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
+          name: X Video ${{ env.RELEASE_VERSION }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
