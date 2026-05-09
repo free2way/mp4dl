@@ -2,8 +2,6 @@ name: Android APK Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
@@ -38,7 +36,7 @@ jobs:
           gradle-version: 8.10.2
 
       - name: Build release APK
-        run: gradle :app:assembleRelease --stacktrace
+        run: gradle :app:assembleRelease
 
       - name: Prepare APK artifact
         run: |

@@ -1,8 +1,19 @@
 # X Video Downloader
 
-A small local web app for downloading videos from public X, YouTube, and Bilibili pages.
+A local web app and standalone Android app for downloading videos from public X, YouTube, and Bilibili pages.
 
 Use it only for videos you own or have permission to save.
+
+![Android app main screen](docs/assets/android-main.svg)
+
+## Features
+
+- Local desktop web UI for parsing and downloading public videos.
+- Standalone Android app that downloads directly on the phone.
+- Phone downloads are saved to `Download/X Video/`.
+- Supports X/Twitter, YouTube, and Bilibili links.
+- Quality presets include best MP4, 1080p, 720p, and MP3 audio.
+- Built on `yt-dlp`; the Android app can update its bundled engine from the app UI.
 
 ## Requirements
 
@@ -46,6 +57,18 @@ export VIDEO_DOWNLOADER_USER="your-user"
 export VIDEO_DOWNLOADER_PASSWORD="your-strong-password"
 export VIDEO_DOWNLOADER_SECRET="a-long-random-session-secret"
 .venv/bin/python server.py
+```
+
+## Android App
+
+The Android project lives in `android/` and does not replace the existing web app.
+
+Open `android/` in Android Studio and run the `app` configuration, or download a release APK from GitHub Releases when available.
+
+The Android app saves videos on the phone at:
+
+```text
+/storage/emulated/0/Download/X Video
 ```
 
 ## Deploying to Vercel

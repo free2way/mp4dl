@@ -1,0 +1,40 @@
+<svg width="390" height="844" viewBox="0 0 390 844" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">X Video Android main screen</title>
+  <desc id="desc">Main screen preview for the Android video downloader app.</desc>
+  <rect width="390" height="844" rx="42" fill="#171717"/>
+  <rect x="10" y="10" width="370" height="824" rx="34" fill="#F7F5F0"/>
+  <rect x="164" y="24" width="62" height="6" rx="3" fill="#D8D2C7"/>
+  <g transform="translate(32 58)">
+    <text x="0" y="0" fill="#67635B" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">PHONE DOWNLOADER</text>
+    <text x="0" y="50" fill="#171717" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="800">X Video</text>
+    <text x="0" y="82" fill="#67635B" font-family="Arial, Helvetica, sans-serif" font-size="15">Paste a public video link and save it on this phone.</text>
+
+    <rect x="0" y="114" width="326" height="92" rx="4" fill="#FFFFFF"/>
+    <text x="16" y="144" fill="#8B867C" font-family="Arial, Helvetica, sans-serif" font-size="15">X / YouTube / Bilibili link</text>
+    <text x="16" y="174" fill="#B4AEA3" font-family="Arial, Helvetica, sans-serif" font-size="13">https://x.com/...</text>
+
+    <rect x="0" y="218" width="326" height="52" rx="4" fill="#FFFFFF"/>
+    <text x="132" y="250" fill="#171717" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">Paste link</text>
+
+    <text x="0" y="314" fill="#171717" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700">Quality</text>
+    <rect x="0" y="328" width="326" height="50" rx="4" fill="#FFFFFF"/>
+    <text x="16" y="360" fill="#171717" font-family="Arial, Helvetica, sans-serif" font-size="15">Best MP4</text>
+    <path d="M296 348L306 358L316 348" stroke="#67635B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="0" y="402" fill="#67635B" font-family="Arial, Helvetica, sans-serif" font-size="14">Highest quality video with MP4 merge when possible.</text>
+
+    <text x="0" y="442" fill="#67635B" font-family="Arial, Helvetica, sans-serif" font-size="13">Save path: /storage/emulated/0/Download/X Video</text>
+
+    <rect x="0" y="474" width="326" height="52" rx="4" fill="#FFFFFF"/>
+    <text x="119" y="507" fill="#171717" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">Check video</text>
+
+    <rect x="0" y="538" width="326" height="52" rx="4" fill="#0E8F72"/>
+    <text x="126" y="571" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">Download</text>
+
+    <rect x="0" y="602" width="326" height="52" rx="4" fill="#FFFFFF"/>
+    <text x="112" y="635" fill="#171717" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">Update engine</text>
+
+    <rect x="0" y="686" width="326" height="5" rx="2.5" fill="#DDD7CE"/>
+    <rect x="0" y="686" width="112" height="5" rx="2.5" fill="#0E8F72"/>
+    <text x="0" y="724" fill="#171717" font-family="Arial, Helvetica, sans-serif" font-size="15">Ready</text>
+  </g>
+</svg>
