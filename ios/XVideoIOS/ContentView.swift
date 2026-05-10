@@ -46,13 +46,34 @@ enum DownloadChoice: String, CaseIterable, Identifiable {
     }
 }
 
-struct VideoSummary: Equatable {
-    let title: String
-    let platform: String
-    let duration: String?
+enum DownloadQueueStatus: String {
+    case queued
+    case running
+    case completed
+    case failed
+    case canceled
 
-    var displayText: String {
-        [title, platform, duration].compactMap { $0 }.joined(separator: "\n")
+    var label: String {
+        switch self {
+        case .queued: "Queued"
+        case .running: "Downloading"
+        case .completed: "Done"
+        case .failed: "Failed"
+        case .canceled: "Canceled"
+        }
+    }
+}
+
+struct DownloadQueueItem: Identifiable, Equatable {
+    let id: UUID
+    let url: String
+    var status: DownloadQueueStatus = .queued
+    var progress: Double = 0
+    var message: String = "Waiting"
+    var logLines: [String] = []
+
+    var displayTitle: String {
+        URLComponents(string: url)?.host ?? url
     }
 }
 
@@ -61,16 +82,16 @@ final class DownloaderViewModel: ObservableObject {
     @Published var videoURL = ""
     @Published var saveDirectory: String
     @Published var selectedChoice: DownloadChoice = .bestMP4
-    @Published var summary: VideoSummary?
+    @Published var concurrency = 3
+    @Published var jobs: [DownloadQueueItem] = []
     @Published var status = "Initializing downloader..."
     @Published var engineText = "Checking bundled tools..."
     @Published var progress = 0.0
     @Published var isBusy = false
     @Published var isDownloading = false
-    @Published var logLines: [String] = []
 
     private let supportedHosts = ["x.com", "twitter.com", "youtube.com", "youtu.be", "bilibili.com", "b23.tv"]
-    private var currentProcess: Process?
+    private var currentProcesses: [UUID: Process] = [:]
 
     init() {
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
@@ -80,7 +101,15 @@ final class DownloaderViewModel: ObservableObject {
     }
 
     var canDownload: Bool {
-        !isBusy && normalizedURL(showError: false) != nil
+        !isBusy && !validLinks(showError: false).isEmpty
+    }
+
+    var completedCount: Int {
+        jobs.filter { $0.status == .completed }.count
+    }
+
+    var runningCount: Int {
+        jobs.filter { $0.status == .running }.count
     }
 
     var ytDlpURL: URL? {
@@ -120,34 +149,35 @@ final class DownloaderViewModel: ObservableObject {
         }
     }
 
-    func pasteLink() {
+    func pasteLinks() {
         if let text = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
             videoURL = text
-            status = "Link pasted"
+            prepareQueue()
+            status = "\(jobs.count) link\(jobs.count == 1 ? "" : "s") ready"
         } else {
             status = "Clipboard is empty"
         }
     }
 
-    func checkVideo() {
-        guard let url = normalizedURL(showError: true), let ytDlpURL else { return }
-        run("Checking video...") {
-            let output = try await self.runAndCollect(
-                executable: ytDlpURL,
-                arguments: ["--no-playlist", "--dump-json", url]
-            )
-            self.summary = try self.parseSummary(output)
-            self.status = self.summary?.displayText ?? "Video is available"
+    func prepareQueue() {
+        let links = validLinks(showError: true)
+        jobs = links.map {
+            DownloadQueueItem(id: UUID(), url: $0)
+        }
+        progress = 0
+        if links.isEmpty {
+            status = "Paste one or more X, YouTube, or Bilibili links"
+        } else {
+            status = "\(links.count) link\(links.count == 1 ? "" : "s") ready"
         }
     }
 
-    func toggleDownload() {
+    func toggleDownloads() {
         if isDownloading {
-            currentProcess?.terminate()
-            status = "Canceling download..."
+            cancelDownloads()
             return
         }
-        startDownload()
+        startDownloads()
     }
 
     func openSaveFolder() {
@@ -155,19 +185,75 @@ final class DownloaderViewModel: ObservableObject {
         NSWorkspace.shared.open(URL(fileURLWithPath: saveDirectory))
     }
 
-    private func startDownload() {
-        guard let url = normalizedURL(showError: true), let ytDlpURL else { return }
-        guard let ffmpegURL else {
+    private func startDownloads() {
+        guard ytDlpURL != nil else {
+            status = "Bundled yt-dlp was not found."
+            return
+        }
+        guard ffmpegURL != nil else {
             status = "Bundled ffmpeg was not found."
             return
         }
 
+        let links = validLinks(showError: true)
+        guard !links.isEmpty else { return }
+
         ensureDownloadDirectory()
+        concurrency = min(5, max(1, concurrency))
+        jobs = links.map {
+            DownloadQueueItem(id: UUID(), url: $0)
+        }
         progress = 0
-        logLines.removeAll()
         isBusy = true
         isDownloading = true
-        status = "Starting download..."
+        status = "Starting \(jobs.count) download\(jobs.count == 1 ? "" : "s")..."
+        launchQueuedDownloads()
+    }
+
+    private func cancelDownloads() {
+        isDownloading = false
+        status = "Canceling downloads..."
+        currentProcesses.values.forEach { $0.terminate() }
+        currentProcesses.removeAll()
+        for index in jobs.indices {
+            if jobs[index].status == .queued || jobs[index].status == .running {
+                jobs[index].status = .canceled
+                jobs[index].message = "Canceled"
+            }
+        }
+        isBusy = false
+        updateOverallProgress()
+    }
+
+    private func launchQueuedDownloads() {
+        guard isDownloading else { return }
+
+        while runningCount < concurrency,
+              let index = jobs.firstIndex(where: { $0.status == .queued }) {
+            let job = jobs[index]
+            jobs[index].status = .running
+            jobs[index].message = "Starting..."
+            Task {
+                await performDownload(jobID: job.id, url: job.url)
+            }
+        }
+
+        if currentProcesses.isEmpty && jobs.allSatisfy({ $0.status != .queued && $0.status != .running }) {
+            isBusy = false
+            isDownloading = false
+            let failed = jobs.filter { $0.status == .failed }.count
+            let canceled = jobs.filter { $0.status == .canceled }.count
+            if failed > 0 || canceled > 0 {
+                status = "Finished: \(completedCount) done, \(failed) failed, \(canceled) canceled"
+            } else {
+                status = "All downloads completed"
+            }
+            updateOverallProgress()
+        }
+    }
+
+    private func performDownload(jobID: UUID, url: String) async {
+        guard let ytDlpURL, let ffmpegURL else { return }
 
         var arguments = [
             "--no-playlist",
@@ -180,44 +266,71 @@ final class DownloaderViewModel: ObservableObject {
         arguments.append(contentsOf: selectedChoice.ytDlpArguments)
         arguments.append(url)
 
-        Task {
-            do {
-                try await runStreaming(executable: ytDlpURL, arguments: arguments)
-                progress = 100
-                status = "Saved to \(saveDirectory)"
-            } catch {
-                status = cleanMessage(error)
-            }
-            isBusy = false
-            isDownloading = false
-            currentProcess = nil
+        do {
+            try await runStreaming(jobID: jobID, executable: ytDlpURL, arguments: arguments)
+            finish(jobID: jobID, status: .completed, progress: 100, message: "Saved")
+        } catch {
+            let wasCanceled = !isDownloading || (error as? DownloadError)?.errorDescription == "Download canceled"
+            finish(
+                jobID: jobID,
+                status: wasCanceled ? .canceled : .failed,
+                progress: job(jobID)?.progress ?? 0,
+                message: wasCanceled ? "Canceled" : cleanMessage(error)
+            )
         }
+
+        currentProcesses[jobID] = nil
+        updateOverallProgress()
+        launchQueuedDownloads()
     }
 
-    private func run(_ busyStatus: String, operation: @escaping () async throws -> Void) {
-        isBusy = true
-        status = busyStatus
-        Task {
-            do {
-                try await operation()
-            } catch {
-                status = cleanMessage(error)
-            }
-            isBusy = false
-        }
+    private func finish(jobID: UUID, status: DownloadQueueStatus, progress: Double, message: String) {
+        guard let index = jobs.firstIndex(where: { $0.id == jobID }) else { return }
+        jobs[index].status = status
+        jobs[index].progress = progress
+        jobs[index].message = message
     }
 
-    private func normalizedURL(showError: Bool) -> String? {
-        let trimmed = videoURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func job(_ id: UUID) -> DownloadQueueItem? {
+        jobs.first { $0.id == id }
+    }
+
+    private func validLinks(showError: Bool) -> [String] {
+        let candidates = extractCandidateLinks(from: videoURL)
+        var seen = Set<String>()
+        let links = candidates.compactMap { normalizedURL($0) }.filter { seen.insert($0).inserted }
+        if showError && links.isEmpty {
+            status = "Use X, YouTube, or Bilibili links, one per line"
+        }
+        return links
+    }
+
+    private func extractCandidateLinks(from text: String) -> [String] {
+        let fullRange = NSRange(text.startIndex..<text.endIndex, in: text)
+        if let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) {
+            let detected = detector.matches(in: text, range: fullRange).compactMap { result -> String? in
+                guard let range = Range(result.range, in: text) else { return nil }
+                return String(text[range]).cleanedURLCandidate
+            }
+            if !detected.isEmpty {
+                return detected
+            }
+        }
+
+        return text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .map(\.cleanedURLCandidate)
+            .filter { $0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://") }
+    }
+
+    private func normalizedURL(_ raw: String) -> String? {
+        let trimmed = raw.cleanedURLCandidate
         guard let components = URLComponents(string: trimmed),
               let scheme = components.scheme?.lowercased(),
               ["http", "https"].contains(scheme),
               let host = components.host?.lowercased().removingWWWPrefix(),
               supportedHosts.contains(where: { host == $0 || host.hasSuffix(".\($0)") })
         else {
-            if showError {
-                status = "Use an X, YouTube, or Bilibili link"
-            }
             return nil
         }
         return trimmed
@@ -265,7 +378,7 @@ final class DownloaderViewModel: ObservableObject {
         }
     }
 
-    private func runStreaming(executable: URL, arguments: [String]) async throws {
+    private func runStreaming(jobID: UUID, executable: URL, arguments: [String]) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let pipe = Pipe()
@@ -274,7 +387,6 @@ final class DownloaderViewModel: ObservableObject {
             process.standardOutput = pipe
             process.standardError = pipe
             process.environment = childEnvironment()
-            currentProcess = process
 
             var buffer = Data()
             pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
@@ -286,28 +398,25 @@ final class DownloaderViewModel: ObservableObject {
                     buffer.removeSubrange(buffer.startIndex...newlineRange.lowerBound)
                     guard let line = String(data: lineData, encoding: .utf8) else { continue }
                     Task { @MainActor in
-                        self?.consumeDownloadLine(line)
+                        self?.consumeDownloadLine(jobID: jobID, line)
                     }
                 }
             }
 
-            process.terminationHandler = { [weak self] finished in
+            process.terminationHandler = { finished in
                 pipe.fileHandleForReading.readabilityHandler = nil
                 if finished.terminationStatus == 0 {
                     continuation.resume()
+                } else if finished.terminationStatus == 15 {
+                    continuation.resume(throwing: DownloadError.message("Download canceled"))
                 } else {
-                    Task { @MainActor in
-                        if self?.isDownloading == false {
-                            continuation.resume(throwing: DownloadError.message("Download canceled"))
-                        } else {
-                            continuation.resume(throwing: DownloadError.message("Download failed"))
-                        }
-                    }
+                    continuation.resume(throwing: DownloadError.message("Download failed"))
                 }
             }
 
             do {
                 try process.run()
+                currentProcesses[jobID] = process
             } catch {
                 pipe.fileHandleForReading.readabilityHandler = nil
                 continuation.resume(throwing: error)
@@ -315,29 +424,29 @@ final class DownloaderViewModel: ObservableObject {
         }
     }
 
-    private func consumeDownloadLine(_ rawLine: String) {
+    private func consumeDownloadLine(jobID: UUID, _ rawLine: String) {
         let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !line.isEmpty else { return }
-        logLines.append(line)
-        logLines = Array(logLines.suffix(8))
-        status = line
+        guard !line.isEmpty, let index = jobs.firstIndex(where: { $0.id == jobID }) else { return }
+        jobs[index].logLines.append(line)
+        jobs[index].logLines = Array(jobs[index].logLines.suffix(3))
+        jobs[index].message = line
 
         if let percent = line.downloadPercent {
-            progress = percent
+            jobs[index].progress = percent
+            updateOverallProgress()
         }
+
+        let running = runningCount
+        status = "\(completedCount)/\(jobs.count) done, \(running) running"
     }
 
-    private func parseSummary(_ output: String) throws -> VideoSummary {
-        guard let jsonLine = output.split(separator: "\n").first(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("{") }),
-              let data = String(jsonLine).data(using: .utf8),
-              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
-            throw DownloadError.message("Could not parse video information.")
+    private func updateOverallProgress() {
+        guard !jobs.isEmpty else {
+            progress = 0
+            return
         }
-        let title = object["title"] as? String ?? "Untitled video"
-        let platform = object["extractor_key"] as? String ?? "Video"
-        let duration = (object["duration"] as? Double).map { Self.formatDuration(Int($0)) }
-        return VideoSummary(title: title, platform: platform, duration: duration)
+        let total = jobs.reduce(0.0) { $0 + $1.progress }
+        progress = total / Double(jobs.count)
     }
 
     private func childEnvironment() -> [String: String] {
@@ -356,17 +465,6 @@ final class DownloaderViewModel: ObservableObject {
         }
         return error.localizedDescription.firstNonEmptyLine ?? "Unknown error"
     }
-
-    private static func formatDuration(_ seconds: Int) -> String {
-        let safe = max(0, seconds)
-        let hours = safe / 3600
-        let minutes = safe % 3600 / 60
-        let remaining = safe % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, remaining)
-        }
-        return String(format: "%d:%02d", minutes, remaining)
-    }
 }
 
 struct ContentView: View {
@@ -379,7 +477,7 @@ struct ContentView: View {
                     header
                     engineSection
                     downloadSection
-                    progressSection
+                    queueSection
                 }
                 .padding(22)
             }
@@ -395,7 +493,7 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
             Text("X Video")
                 .font(.largeTitle.weight(.bold))
-            Text("Paste a public video link and save it on this Mac.")
+            Text("Paste public video links and save them on this Mac.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -420,7 +518,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("Download")
             TextEditor(text: $viewModel.videoURL)
-                .frame(minHeight: 82)
+                .frame(minHeight: 120)
                 .padding(8)
                 .background(.background)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -428,15 +526,16 @@ struct ContentView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.secondary.opacity(0.18))
                 )
+                .disabled(viewModel.isDownloading)
 
             Button {
-                viewModel.pasteLink()
+                viewModel.pasteLinks()
             } label: {
-                Label("Paste Link", systemImage: "doc.on.clipboard")
+                Label("Paste Links", systemImage: "doc.on.clipboard")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
-            .disabled(viewModel.isBusy)
+            .disabled(viewModel.isDownloading)
 
             Picker("Quality", selection: $viewModel.selectedChoice) {
                 ForEach(DownloadChoice.allCases) { choice in
@@ -450,19 +549,24 @@ struct ContentView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
+            Stepper(value: $viewModel.concurrency, in: 1...5) {
+                Text("Concurrent downloads: \(viewModel.concurrency)")
+            }
+            .disabled(viewModel.isDownloading)
+
             TextField("Save folder", text: $viewModel.saveDirectory)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .disabled(viewModel.isDownloading)
 
             HStack {
                 Button {
-                    viewModel.checkVideo()
+                    viewModel.prepareQueue()
                 } label: {
-                    Label("Check Video", systemImage: "checkmark.circle")
+                    Label("Check Links", systemImage: "checkmark.circle")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(viewModel.isBusy)
+                .disabled(viewModel.isDownloading)
 
                 Button {
                     viewModel.openSaveFolder()
@@ -474,10 +578,10 @@ struct ContentView: View {
             }
 
             Button {
-                viewModel.toggleDownload()
+                viewModel.toggleDownloads()
             } label: {
                 Label(
-                    viewModel.isDownloading ? "Cancel" : "Download",
+                    viewModel.isDownloading ? "Cancel All" : "Download Queue",
                     systemImage: viewModel.isDownloading ? "xmark.circle.fill" : "arrow.down.circle.fill"
                 )
                 .frame(maxWidth: .infinity)
@@ -487,33 +591,73 @@ struct ContentView: View {
         }
     }
 
-    private var progressSection: some View {
+    private var queueSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Status")
+            sectionTitle("Queue")
             ProgressView(value: viewModel.progress, total: 100)
             Text(viewModel.status)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
 
-            if let summary = viewModel.summary {
-                Text(summary.displayText)
+            if viewModel.jobs.isEmpty {
+                Text("Paste one or more links. Each line can contain one URL.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .padding(.top, 4)
-            }
-
-            if !viewModel.logLines.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(viewModel.logLines, id: \.self) { line in
-                        Text(line)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(viewModel.jobs) { job in
+                        queueRow(job)
                     }
                 }
             }
+        }
+    }
+
+    private func queueRow(_ job: DownloadQueueItem) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(job.displayTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Spacer()
+                Text(job.status.label)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(statusColor(job.status))
+            }
+            ProgressView(value: job.progress, total: 100)
+            Text(job.url)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .textSelection(.enabled)
+            Text(job.message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            ForEach(job.logLines, id: \.self) { line in
+                Text(line)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(10)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.12))
+        )
+    }
+
+    private func statusColor(_ status: DownloadQueueStatus) -> Color {
+        switch status {
+        case .queued: .secondary
+        case .running: .blue
+        case .completed: .green
+        case .failed: .red
+        case .canceled: .orange
         }
     }
 
@@ -542,6 +686,11 @@ private extension String {
             return String(dropFirst(2))
         }
         return self
+    }
+
+    var cleanedURLCandidate: String {
+        trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".,;)]}>\"'"))
     }
 
     var firstNonEmptyLine: String? {

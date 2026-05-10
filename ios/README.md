@@ -16,6 +16,8 @@ Downloads are saved on the Mac at:
 
 The save directory can be changed inside the app.
 
+Paste one or more links into the text box, one per line. The app removes duplicates, queues all supported links, and lets you set the number of concurrent downloads from 1 to 5.
+
 ## Run On Mac mini
 
 Open `ios/XVideoIOS.xcodeproj` in Xcode and run the `XVideoIOS` scheme on `My Mac`.

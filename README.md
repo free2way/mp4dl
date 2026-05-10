@@ -15,6 +15,7 @@ Use it only for videos you own or have permission to save.
 - Mac downloads are saved to `~/Downloads/X Video/`.
 - Supports X/Twitter, YouTube, and Bilibili links.
 - Quality presets include best MP4, 1080p, 720p, and MP3 audio.
+- macOS app supports batch links with configurable concurrency from 1 to 5 downloads.
 - Built on `yt-dlp`; the Android app can update its bundled engine from the app UI.
 
 ## Requirements
@@ -80,6 +81,8 @@ The macOS project lives in `ios/` and is built with SwiftUI. It does not require
 Open `ios/XVideoIOS.xcodeproj` in Xcode and run the `XVideoIOS` scheme on `My Mac`, or download the macOS DMG from GitHub Releases.
 
 The release app bundles `yt-dlp` and `ffmpeg`. Downloads are saved to `~/Downloads/X Video/` by default.
+
+Paste one or more links into the macOS app, one per line. The app queues them and can run up to 5 downloads at the same time.
 
 ## Deploying to Vercel
 
