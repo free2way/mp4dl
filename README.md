@@ -1,6 +1,6 @@
 # X Video Downloader
 
-A local web app plus Android and iOS/Mac Catalyst clients for downloading videos from public X, YouTube, and Bilibili pages.
+A local web app plus standalone Android and macOS apps for downloading videos from public X, YouTube, and Bilibili pages.
 
 Use it only for videos you own or have permission to save.
 
@@ -10,8 +10,9 @@ Use it only for videos you own or have permission to save.
 
 - Local desktop web UI for parsing and downloading public videos.
 - Standalone Android app that downloads directly on the phone.
-- iOS/Mac Catalyst client for controlling the Mac mini local downloader service.
+- Standalone macOS app that bundles `yt-dlp` and `ffmpeg`.
 - Phone downloads are saved to `Download/X Video/`.
+- Mac downloads are saved to `~/Downloads/X Video/`.
 - Supports X/Twitter, YouTube, and Bilibili links.
 - Quality presets include best MP4, 1080p, 720p, and MP3 audio.
 - Built on `yt-dlp`; the Android app can update its bundled engine from the app UI.
@@ -72,13 +73,13 @@ The Android app saves videos on the phone at:
 /storage/emulated/0/Download/X Video
 ```
 
-## iOS / Mac mini App
+## macOS App
 
-The iOS project lives in `ios/` and is built with SwiftUI. It supports iPhone/iPad targets and Mac Catalyst, so it can run as an app on the Mac mini.
+The macOS project lives in `ios/` and is built with SwiftUI. It does not require the local Python service.
 
-Start the local Python service first, then open `ios/XVideoIOS.xcodeproj` in Xcode and run the `XVideoIOS` scheme. The default client URL is `http://127.0.0.1:8765`.
+Open `ios/XVideoIOS.xcodeproj` in Xcode and run the `XVideoIOS` scheme on `My Mac`, or download the macOS DMG from GitHub Releases.
 
-Downloads are saved by the Mac mini Python service, so use the save directory field in the app to choose a Mac path.
+The release app bundles `yt-dlp` and `ffmpeg`. Downloads are saved to `~/Downloads/X Video/` by default.
 
 ## Deploying to Vercel
 
