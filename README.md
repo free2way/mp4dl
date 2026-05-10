@@ -1,6 +1,6 @@
 # X Video Downloader
 
-A local web app and standalone Android app for downloading videos from public X, YouTube, and Bilibili pages.
+A local web app plus Android and iOS/Mac Catalyst clients for downloading videos from public X, YouTube, and Bilibili pages.
 
 Use it only for videos you own or have permission to save.
 
@@ -10,6 +10,7 @@ Use it only for videos you own or have permission to save.
 
 - Local desktop web UI for parsing and downloading public videos.
 - Standalone Android app that downloads directly on the phone.
+- iOS/Mac Catalyst client for controlling the Mac mini local downloader service.
 - Phone downloads are saved to `Download/X Video/`.
 - Supports X/Twitter, YouTube, and Bilibili links.
 - Quality presets include best MP4, 1080p, 720p, and MP3 audio.
@@ -70,6 +71,14 @@ The Android app saves videos on the phone at:
 ```text
 /storage/emulated/0/Download/X Video
 ```
+
+## iOS / Mac mini App
+
+The iOS project lives in `ios/` and is built with SwiftUI. It supports iPhone/iPad targets and Mac Catalyst, so it can run as an app on the Mac mini.
+
+Start the local Python service first, then open `ios/XVideoIOS.xcodeproj` in Xcode and run the `XVideoIOS` scheme. The default client URL is `http://127.0.0.1:8765`.
+
+Downloads are saved by the Mac mini Python service, so use the save directory field in the app to choose a Mac path.
 
 ## Deploying to Vercel
 
