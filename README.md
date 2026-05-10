@@ -15,6 +15,7 @@ Use it only for videos you own or have permission to save.
 - Mac downloads are saved to `~/Downloads/X Video/`.
 - Supports X/Twitter, YouTube, and Bilibili links.
 - Quality presets include best MP4, 1080p, 720p, and MP3 audio.
+- Android app supports batch links with configurable concurrency from 1 to 5 downloads.
 - macOS app supports batch links with configurable concurrency from 1 to 5 downloads.
 - Built on `yt-dlp`; the Android app can update its bundled engine from the app UI.
 

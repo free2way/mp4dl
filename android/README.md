@@ -5,6 +5,8 @@ This is a standalone Android client for the downloader. It does not reuse or rep
 ## What It Does
 
 - Downloads public X, YouTube, and Bilibili videos directly on the phone.
+- Supports pasting multiple links and downloading them as a queue.
+- Lets you set concurrent downloads from 1 to 5.
 - Saves files to the phone's public download folder: `Download/X Video/`.
 - Uses the bundled `youtubedl-android` runtime, so it does not need `server.py` running on a computer.
 

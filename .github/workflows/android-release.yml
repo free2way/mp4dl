@@ -1,6 +1,7 @@
 name: Android APK Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
